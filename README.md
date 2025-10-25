@@ -1,4 +1,4 @@
-##Church-management
+Church-management
 
-npm i
-npm run dev to run 
+#npm i
+#npm run dev to run 
