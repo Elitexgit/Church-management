@@ -13,6 +13,11 @@ interface RegistrationData {
   age_group: string;
   accommodation: string;
   special_requirements: string;
+  event: string;
+  category: string;
+  role: string;
+  region: string;
+  church_district: string;
   status: 'confirmed' | 'pending' | 'checked_in' | 'cancelled';
   created_at: string;
 }
@@ -38,6 +43,11 @@ export default function Registration() {
     age_group: '',
     accommodation: 'Not Required',
     special_requirements: '',
+    event: '',
+    category: '',
+    role: '',
+    region: '',
+    church_district: '',
   });
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -149,6 +159,11 @@ export default function Registration() {
         ...prev,
         accommodation: 'Not Required',
         special_requirements: '',
+        event: '',
+        category: '',
+        role: '',
+        region: '',
+        church_district: '',
       }));
       
       // Refresh the displayed data and stats
@@ -272,6 +287,93 @@ export default function Registration() {
                 <option value="Ibadan">Ibadan</option>
                 <option value="Enugu">Enugu</option>
                 <option value="Other">Other/Not Listed</option>
+              </select>
+            </div>
+
+            {/* Region */}
+            <div>
+              <label htmlFor="region" className="block text-sm font-medium text-gray-700 mb-2">Region/State <span className="text-red-500">*</span></label>
+              <input
+                id="region"
+                type="text"
+                name="region"
+                value={formData.region}
+                onChange={handleChange}
+                required
+                placeholder="e.g., Lagos, Oyo, Kano"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-colors duration-200"
+              />
+            </div>
+
+            {/* Church District */}
+            <div>
+              <label htmlFor="church_district" className="block text-sm font-medium text-gray-700 mb-2">Church District <span className="text-red-500">*</span></label>
+              <input
+                id="church_district"
+                type="text"
+                name="church_district"
+                value={formData.church_district}
+                onChange={handleChange}
+                required
+                placeholder="e.g., Victoria Island District"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-colors duration-200"
+              />
+            </div>
+
+            {/* Event */}
+            <div>
+              <label htmlFor="event" className="block text-sm font-medium text-gray-700 mb-2">Event <span className="text-red-500">*</span></label>
+              <select
+                id="event"
+                name="event"
+                value={formData.event}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-colors duration-200 bg-white appearance-none"
+              >
+                <option value="" disabled>Select event</option>
+                <option value="December Retreat">December Retreat</option>
+                <option value="Easter Retreat">Easter Retreat</option>
+                <option value="GCK">GCK</option>
+                <option value="Crusades">Crusades</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            {/* Category */}
+            <div>
+              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">Category <span className="text-red-500">*</span></label>
+              <select
+                id="category"
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-colors duration-200 bg-white appearance-none"
+              >
+                <option value="" disabled>Select category</option>
+                <option value="Youth">Youth</option>
+                <option value="Adult">Adult</option>
+                <option value="Children">Children</option>
+                <option value="Campus">Campus</option>
+              </select>
+            </div>
+
+            {/* Role */}
+            <div>
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">Role <span className="text-red-500">*</span></label>
+              <select
+                id="role"
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-colors duration-200 bg-white appearance-none"
+              >
+                <option value="" disabled>Select your role</option>
+                <option value="Pastor">Pastor</option>
+                <option value="Choir">Choir</option>
+                <option value="Member">Member</option>
               </select>
             </div>
 
