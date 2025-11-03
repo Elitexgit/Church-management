@@ -1,4 +1,4 @@
-import { Home, Layers, Users, Calendar, MessageSquare, PlayCircle, MessageCircle, BookOpen, UserCircle, UserCheck, User, LogOut } from 'lucide-react';
+import { Home, Layers, Users, Calendar, MessageSquare, PlayCircle, MessageCircle, BookOpen, UserCircle, UserCheck, User, LogOut, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
@@ -7,7 +7,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
 
   const menuItems = [
     // Core Navigation
@@ -24,6 +24,10 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
     // Communication
     { id: 'communication', label: 'General Communication', icon: MessageSquare },
     { id: 'feedback', label: 'Feedback & Forms', icon: MessageCircle },
+  ];
+
+  const adminMenuItems = [
+    { id: 'admin', label: 'Admin Panel', icon: Settings },
   ];
 
   const handleLogout = async () => {
@@ -61,7 +65,6 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
               <button
                 key={item.id}
                 onClick={() => onPageChange(item.id)}
-                // Modern active state: full-width pill with distinct color
                 className={`
                   w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 text-left
                   ${isActive
@@ -78,6 +81,35 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
               </button>
             );
           })}
+
+          {user?.email === 'paulelite606@gmail.com' && (
+            <div className="pt-4 border-t border-gray-700 mt-4">
+              <p className="text-xs text-gray-500 px-4 mb-2 uppercase tracking-wider">Admin</p>
+              {adminMenuItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentPage === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onPageChange(item.id)}
+                    className={`
+                      w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 text-left
+                      ${isActive
+                        ? 'bg-orange-600 text-white shadow-md font-semibold'
+                        : 'text-gray-300 hover:bg-gray-800 hover:text-orange-400'
+                      }
+                    `}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="text-sm">{item.label}</span>
+                    {isActive && (
+                        <span className="ml-auto w-1 h-5 bg-orange-300 rounded-full"></span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </nav>
 
         {/* --- Footer / User Actions --- */}

@@ -14,6 +14,7 @@ import Quiz from './pages/Quiz';
 import GetDP from './pages/GetDP';
 import Consultation from './pages/Consultation';
 import Profile from './pages/Profile';
+import Admin from './pages/Admin';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 
@@ -51,6 +52,8 @@ function AppContent() {
         return <Consultation />;
       case 'profile':
         return <Profile />;
+      case 'admin':
+        return <Admin />;
       default:
         return <Dashboard userName={profile?.full_name || 'User'} />;
     }
