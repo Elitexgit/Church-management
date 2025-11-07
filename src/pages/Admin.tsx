@@ -1,513 +1,167 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Edit2, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { useState } from 'react';
+import {
+  Users,
+  UserCheck,
+  CheckSquare,
+  Upload,
+  FileText,
+  Image,
+  Download,
+  Trash2,
+  Eye,
+  FileBadge,
+} from 'lucide-react';
 
-interface Schedule {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  location: string;
-  created_at: string;
-}
-
-interface Meal {
-  id: string;
-  name: string;
-  description: string;
-  meal_type: string;
-  date: string;
-  dietary_info: string;
-  created_at: string;
-}
+// --- Mock Data ---
 
 interface Registration {
   id: string;
   full_name: string;
   email: string;
   phone_number: string;
-  event: string;
   category: string;
-  created_at: string;
+  registered_at: string;
 }
 
+// Mock data for the list of registered members
+const mockRegistrations: Registration[] = [
+  {
+    id: '1',
+    full_name: 'Alice Johnson',
+    email: 'alice@example.com',
+    phone_number: '555-1234',
+    category: 'Attendee',
+    registered_at: '2025-10-20T10:00:00Z',
+  },
+  {
+    id: '2',
+    full_name: 'Bob Smith',
+    email: 'bob@example.com',
+    phone_number: '555-5678',
+    category: 'Speaker',
+    registered_at: '2025-10-19T14:30:00Z',
+  },
+  {
+    id: '3',
+    full_name: 'Carol White',
+    email: 'carol@example.com',
+    phone_number: '555-8765',
+    category: 'Attendee',
+    registered_at: '2025-10-19T11:15:00Z',
+  },
+  {
+    id: '4',
+    full_name: 'David Brown',
+    email: 'david@example.com',
+    phone_number: '555-4321',
+    category: 'VIP',
+    registered_at: '2025-10-18T09:00:00Z',
+  },
+  {
+    id: '5',
+    full_name: 'Eve Davis',
+    email: 'eve@example.com',
+    phone_number: '555-1122',
+    category: 'Attendee',
+    registered_at: '2025-10-17T17:45:00Z',
+  },
+];
+
+// Mock data for stats cards
+const totalMembers = mockRegistrations.length;
+const totalAttended = 120; // Hardcoded mock number
+const totalSpeakers = mockRegistrations.filter(
+  (r) => r.category === 'Speaker'
+).length;
+
+// Mock data for uploaded files
+const mockAttendanceFiles = [
+  { id: 'f1', name: 'Day_1_Sign_In.xlsx', size: '1.2MB', date: '2025-11-01' },
+  { id: 'f2', name: 'Day_2_Sign_In.xlsx', size: '1.3MB', date: '2025-11-02' },
+  { id: 'f3', name: 'Final_Attendance_Report.pdf', size: '3.5MB', date: '2025-11-03' },
+];
+
+// Mock data for media gallery
+const mockMediaFiles = [
+  { id: 'm1', url: 'https://via.placeholder.com/300/007BFF/FFFFFF?text=Retreat+1', alt: 'Retreat Session 1' },
+  { id: 'm2', url: 'https://via.placeholder.com/300/28A745/FFFFFF?text=Group+Photo', alt: 'Group Photo' },
+  { id: 'm3', url: 'https://via.placeholder.com/300/FFC107/FFFFFF?text=Workshop', alt: 'Workshop' },
+  { id: 'm4', url: 'https://via.placeholder.com/300/DC3545/FFFFFF?text=Keynote', alt: 'Keynote Speaker' },
+  { id: 'm5', url: 'https://via.placeholder.com/300/17A2B8/FFFFFF?text=Networking', alt: 'Networking Event' },
+  { id: 'm6', url: 'https://via.placeholder.com/300/6C757D/FFFFFF?text=Closing', alt: 'Closing Ceremony' },
+];
+
+// --- Component ---
+
 export default function Admin() {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('schedules');
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState('');
-  const [error, setError] = useState('');
-
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [meals, setMeals] = useState<Meal[]>([]);
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
-
-  const [scheduleForm, setScheduleForm] = useState({
-    title: '',
-    description: '',
-    date: '',
-    start_time: '',
-    end_time: '',
-    location: '',
-  });
-
-  const [mealForm, setMealForm] = useState({
-    name: '',
-    description: '',
-    meal_type: 'breakfast',
-    date: '',
-    dietary_info: '',
-  });
-
-  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
-  const [editingMealId, setEditingMealId] = useState<string | null>(null);
-
-  useEffect(() => {
-    checkAdminStatus();
-  }, [user]);
-
-  const checkAdminStatus = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const { data } = await supabase
-        .from('admin_users')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      setIsAdmin(!!data);
-      if (data) {
-        await Promise.all([fetchSchedules(), fetchMeals(), fetchRegistrations()]);
-      }
-    } catch (err) {
-      console.error('Error checking admin status:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchSchedules = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('schedules')
-        .select('*')
-        .order('date', { ascending: true });
-
-      if (error) throw error;
-      setSchedules(data || []);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }, []);
-
-  const fetchMeals = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('meals_menu')
-        .select('*')
-        .order('date', { ascending: true });
-
-      if (error) throw error;
-      setMeals(data || []);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }, []);
-
-  const fetchRegistrations = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('registrations')
-        .select('id, full_name, email, phone_number, event, category, created_at')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setRegistrations(data || []);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }, []);
-
-  const handleAddSchedule = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const { data: adminData } = await supabase
-        .from('admin_users')
-        .select('id')
-        .eq('user_id', user?.id)
-        .maybeSingle();
-
-      if (!adminData) throw new Error('Admin not found');
-
-      const { error: insertError } = await supabase.from('schedules').insert({
-        ...scheduleForm,
-        created_by: adminData.id,
-      });
-
-      if (insertError) throw insertError;
-
-      setSuccess('Schedule added successfully!');
-      setScheduleForm({
-        title: '',
-        description: '',
-        date: '',
-        start_time: '',
-        end_time: '',
-        location: '',
-      });
-      await fetchSchedules();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to add schedule');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleAddMeal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const { data: adminData } = await supabase
-        .from('admin_users')
-        .select('id')
-        .eq('user_id', user?.id)
-        .maybeSingle();
-
-      if (!adminData) throw new Error('Admin not found');
-
-      const { error: insertError } = await supabase.from('meals_menu').insert({
-        ...mealForm,
-        created_by: adminData.id,
-      });
-
-      if (insertError) throw insertError;
-
-      setSuccess('Meal added successfully!');
-      setMealForm({
-        name: '',
-        description: '',
-        meal_type: 'breakfast',
-        date: '',
-        dietary_info: '',
-      });
-      await fetchMeals();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to add meal');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const deleteSchedule = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this schedule?')) return;
-
-    try {
-      const { error } = await supabase.from('schedules').delete().eq('id', id);
-      if (error) throw error;
-      setSuccess('Schedule deleted successfully');
-      await fetchSchedules();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  const deleteMeal = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this meal?')) return;
-
-    try {
-      const { error } = await supabase.from('meals_menu').delete().eq('id', id);
-      if (error) throw error;
-      setSuccess('Meal deleted successfully');
-      await fetchMeals();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="animate-spin text-blue-600" size={40} />
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-red-50 rounded-2xl p-8">
-        <div className="text-center">
-          <AlertCircle className="mx-auto mb-4 text-red-600" size={48} />
-          <h1 className="text-2xl font-bold text-red-800 mb-2">Access Denied</h1>
-          <p className="text-red-600">You do not have admin privileges to access this page.</p>
-        </div>
-      </div>
-    );
-  }
+  const [activeTab, setActiveTab] = useState('registrations');
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <h1 className="text-4xl font-bold text-gray-900 mb-8">Admin Dashboard</h1>
 
-      {success && (
-        <div className="flex items-center bg-green-50 border border-green-300 text-green-800 rounded-xl p-4 mb-6">
-          <CheckCircle className="h-6 w-6 mr-3" />
-          <p className="font-semibold">{success}</p>
+      {/* Stats Cards Section (Total Numbers) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white rounded-2xl shadow-xl p-6 flex items-center justify-between border-l-4 border-blue-600">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Total Registrations</p>
+            <p className="text-3xl font-bold text-gray-900">{totalMembers}</p>
+          </div>
+          <Users className="h-10 w-10 text-blue-600" />
         </div>
-      )}
-
-      {error && (
-        <div className="flex items-center bg-red-50 border border-red-300 text-red-800 rounded-xl p-4 mb-6">
-          <AlertCircle className="h-6 w-6 mr-3" />
-          <p className="font-semibold">{error}</p>
+        
+        <div className="bg-white rounded-2xl shadow-xl p-6 flex items-center justify-between border-l-4 border-green-600">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Total Attended (Mock)</p>
+            <p className="text-3xl font-bold text-gray-900">{totalAttended}</p>
+          </div>
+          <UserCheck className="h-10 w-10 text-green-600" />
         </div>
-      )}
+        
+        <div className="bg-white rounded-2xl shadow-xl p-6 flex items-center justify-between border-l-4 border-purple-600">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Total Speakers</p>
+            <p className="text-3xl font-bold text-gray-900">{totalSpeakers}</p>
+          </div>
+          <CheckSquare className="h-10 w-10 text-purple-600" />
+        </div>
+      </div>
 
+      {/* Tab Navigation */}
       <div className="flex gap-4 mb-8 border-b border-gray-200">
-        {['schedules', 'meals', 'registrations'].map((tab) => (
+        {[
+          { key: 'registrations', label: 'Registrations' },
+          { key: 'attendance', label: 'Upload Attendance' },
+          { key: 'media', label: 'Upload Media' },
+        ].map((tab) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
             className={`px-6 py-3 font-semibold transition-colors ${
-              activeTab === tab
+              activeTab === tab.key
                 ? 'text-blue-600 border-b-2 border-blue-600'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {activeTab === 'schedules' && (
-        <div className="space-y-8">
-          <div className="bg-white rounded-2xl shadow-xl p-8 border-t-4 border-blue-600">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Add Schedule</h2>
-            <form onSubmit={handleAddSchedule} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <input
-                  type="text"
-                  placeholder="Event Title"
-                  value={scheduleForm.title}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, title: e.target.value })}
-                  required
-                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Location"
-                  value={scheduleForm.location}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, location: e.target.value })}
-                  required
-                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
-                />
-                <input
-                  type="date"
-                  value={scheduleForm.date}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, date: e.target.value })}
-                  required
-                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="time"
-                    value={scheduleForm.start_time}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, start_time: e.target.value })}
-                    required
-                    className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
-                  />
-                  <input
-                    type="time"
-                    value={scheduleForm.end_time}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, end_time: e.target.value })}
-                    required
-                    className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-              <textarea
-                placeholder="Description"
-                value={scheduleForm.description}
-                onChange={(e) => setScheduleForm({ ...scheduleForm, description: e.target.value })}
-                rows={4}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
-              />
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50"
-              >
-                <Plus size={20} />
-                {submitting ? 'Adding...' : 'Add Schedule'}
-              </button>
-            </form>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-xl p-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Schedules</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b-2 border-gray-200">
-                  <tr>
-                    <th className="text-left px-6 py-4 font-semibold text-gray-700">Title</th>
-                    <th className="text-left px-6 py-4 font-semibold text-gray-700">Date</th>
-                    <th className="text-left px-6 py-4 font-semibold text-gray-700">Time</th>
-                    <th className="text-left px-6 py-4 font-semibold text-gray-700">Location</th>
-                    <th className="text-center px-6 py-4 font-semibold text-gray-700">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {schedules.map((schedule) => (
-                    <tr key={schedule.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-gray-800 font-medium">{schedule.title}</td>
-                      <td className="px-6 py-4 text-gray-600">{schedule.date}</td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {schedule.start_time} - {schedule.end_time}
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">{schedule.location}</td>
-                      <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={() => deleteSchedule(schedule.id)}
-                          className="inline-flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {schedules.length === 0 && (
-                <div className="text-center py-12 text-gray-500">No schedules yet</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'meals' && (
-        <div className="space-y-8">
-          <div className="bg-white rounded-2xl shadow-xl p-8 border-t-4 border-green-600">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Add Meal</h2>
-            <form onSubmit={handleAddMeal} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <input
-                  type="text"
-                  placeholder="Meal Name"
-                  value={mealForm.name}
-                  onChange={(e) => setMealForm({ ...mealForm, name: e.target.value })}
-                  required
-                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-green-100 focus:border-green-500"
-                />
-                <select
-                  value={mealForm.meal_type}
-                  onChange={(e) => setMealForm({ ...mealForm, meal_type: e.target.value })}
-                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-green-100 focus:border-green-500"
-                >
-                  <option value="breakfast">Breakfast</option>
-                  <option value="lunch">Lunch</option>
-                  <option value="dinner">Dinner</option>
-                  <option value="snack">Snack</option>
-                </select>
-                <input
-                  type="date"
-                  value={mealForm.date}
-                  onChange={(e) => setMealForm({ ...mealForm, date: e.target.value })}
-                  required
-                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-green-100 focus:border-green-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Dietary Info (e.g., Vegetarian, Gluten-free)"
-                  value={mealForm.dietary_info}
-                  onChange={(e) => setMealForm({ ...mealForm, dietary_info: e.target.value })}
-                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-green-100 focus:border-green-500"
-                />
-              </div>
-              <textarea
-                placeholder="Description"
-                value={mealForm.description}
-                onChange={(e) => setMealForm({ ...mealForm, description: e.target.value })}
-                rows={4}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-green-100 focus:border-green-500"
-              />
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 disabled:opacity-50"
-              >
-                <Plus size={20} />
-                {submitting ? 'Adding...' : 'Add Meal'}
-              </button>
-            </form>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-xl p-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Meals Menu</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b-2 border-gray-200">
-                  <tr>
-                    <th className="text-left px-6 py-4 font-semibold text-gray-700">Name</th>
-                    <th className="text-left px-6 py-4 font-semibold text-gray-700">Type</th>
-                    <th className="text-left px-6 py-4 font-semibold text-gray-700">Date</th>
-                    <th className="text-left px-6 py-4 font-semibold text-gray-700">Dietary Info</th>
-                    <th className="text-center px-6 py-4 font-semibold text-gray-700">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {meals.map((meal) => (
-                    <tr key={meal.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-gray-800 font-medium">{meal.name}</td>
-                      <td className="px-6 py-4">
-                        <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold capitalize">
-                          {meal.meal_type}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">{meal.date}</td>
-                      <td className="px-6 py-4 text-gray-600">{meal.dietary_info || '-'}</td>
-                      <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={() => deleteMeal(meal.id)}
-                          className="inline-flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {meals.length === 0 && (
-                <div className="text-center py-12 text-gray-500">No meals yet</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Tab Content */}
+      
+      {/* Registrations Tab */}
       {activeTab === 'registrations' && (
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Event Registrations ({registrations.length})</h2>
+          <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
+            <h2 className="text-2xl font-bold text-gray-800">
+              Retreat Registrations ({mockRegistrations.length})
+            </h2>
+            <button className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors">
+              <Download size={18} />
+              Export CSV
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b-2 border-gray-200">
@@ -515,33 +169,121 @@ export default function Admin() {
                   <th className="text-left px-6 py-4 font-semibold text-gray-700">Name</th>
                   <th className="text-left px-6 py-4 font-semibold text-gray-700">Email</th>
                   <th className="text-left px-6 py-4 font-semibold text-gray-700">Phone</th>
-                  <th className="text-left px-6 py-4 font-semibold text-gray-700">Event</th>
                   <th className="text-left px-6 py-4 font-semibold text-gray-700">Category</th>
-                  <th className="text-left px-6 py-4 font-semibold text-gray-700">Date</th>
+                  <th className="text-left px-6 py-4 font-semibold text-gray-700">Registered On</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {registrations.map((reg) => (
+                {mockRegistrations.map((reg) => (
                   <tr key={reg.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-gray-800 font-medium">{reg.full_name}</td>
                     <td className="px-6 py-4 text-gray-600">{reg.email}</td>
                     <td className="px-6 py-4 text-gray-600">{reg.phone_number}</td>
-                    <td className="px-6 py-4 text-gray-600">{reg.event}</td>
                     <td className="px-6 py-4">
-                      <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">
+                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                        reg.category === 'Speaker' ? 'bg-purple-100 text-purple-700' :
+                        reg.category === 'VIP' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-blue-100 text-blue-700'
+                      }`}>
                         {reg.category}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-gray-600">
-                      {new Date(reg.created_at).toLocaleDateString()}
+                      {new Date(reg.registered_at).toLocaleDateString()}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {registrations.length === 0 && (
-              <div className="text-center py-12 text-gray-500">No registrations yet</div>
-            )}
+          </div>
+        </div>
+      )}
+
+      {/* Upload Attendance Tab */}
+      {activeTab === 'attendance' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Upload Attendance Sheet</h2>
+            <div className="flex flex-col items-center justify-center w-full">
+              <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Upload className="w-12 h-12 text-blue-600 mb-4" />
+                  <p className="mb-2 text-lg font-semibold text-gray-700">Drag & drop files here</p>
+                  <p className="text-sm text-gray-500">or click to browse</p>
+                  <p className="mt-4 text-xs text-gray-500">Supported formats: .XLSX, .CSV, .PDF</p>
+                </div>
+                <input type="file" className="hidden" />
+              </label>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Uploaded Files</h2>
+            <ul className="space-y-4">
+              {mockAttendanceFiles.map((file) => (
+                <li key={file.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <FileBadge className="h-7 w-7 text-blue-600" />
+                    <div>
+                      <span className="font-medium text-gray-800">{file.name}</span>
+                      <p className="text-sm text-gray-500">{file.size} - {file.date}</p>
+                    </div>
+                  </div>
+                  <button className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors">
+                    <Trash2 size={18} />
+                  </button>
+                </li>
+              ))}
+              {mockAttendanceFiles.length === 0 && (
+                <div className="text-center py-12 text-gray-500">No attendance files uploaded yet.</div>
+              )}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Media Tab */}
+      {activeTab === 'media' && (
+        <div className="space-y-8">
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Upload Media</h2>
+            <div className="flex flex-col items-center justify-center w-full">
+              <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Image className="w-12 h-12 text-green-600 mb-4" />
+                  <p className="mb-2 text-lg font-semibold text-gray-700">Drag & drop photos or videos</button>
+                  <p className="text-sm text-gray-500">or click to browse</p>
+                  <p className="mt-4 text-xs text-gray-500">Supported formats: .JPG, .PNG, .MP4</p>
+                </div>
+                <input type="file" className="hidden" multiple />
+              </label>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Media Gallery</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {mockMediaFiles.map((media) => (
+                <div key={media.id} className="relative group aspect-square">
+                  <img
+                    src={media.url}
+                    alt={media.alt}
+                    className="w-full h-full object-cover rounded-lg shadow-md"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                    <button className="text-white p-2 rounded-full hover:bg-white/20">
+                      <Eye size={20} />
+                    </button>
+                    <button className="text-red-500 p-2 rounded-full hover:bg-white/20">
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {mockMediaFiles.length === 0 && (
+                <div className="text-center py-12 text-gray-500">No media uploaded yet.</div>
+              )}
           </div>
         </div>
       )}
