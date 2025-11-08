@@ -251,7 +251,10 @@ export default function Admin() {
               <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100">
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   <Image className="w-12 h-12 text-green-600 mb-4" />
-                  <p className="mb-2 text-lg font-semibold text-gray-700">Drag & drop photos or videos</button>
+                  {/* THIS WAS THE LINE WITH THE ERROR:
+                    It ended with </button> instead of </p>
+                  */}
+                  <p className="mb-2 text-lg font-semibold text-gray-700">Drag & drop photos or videos</p>
                   <p className="text-sm text-gray-500">or click to browse</p>
                   <p className="mt-4 text-xs text-gray-500">Supported formats: .JPG, .PNG, .MP4</p>
                 </div>
